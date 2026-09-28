@@ -1,8 +1,12 @@
 using EnchantTooltip;
+using System;
 using MelonLoader;
+using UnityEngine;
 
-[assembly: MelonInfo(typeof(EnchantTooltipMod), "EnchantTooltip", "0.2.0", "vergir")]
+[assembly: MelonInfo(typeof(EnchantTooltipMod), "EnchantTooltip", "0.4.0", "vergir")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
+// MelonLoader would otherwise apply every [HarmonyPatch] in this assembly by itself, ignoring Enabled (and the INERT build).
+[assembly: HarmonyDontPatchAll]
 
 namespace EnchantTooltip;
 
@@ -18,6 +22,10 @@ public class EnchantTooltipMod : MelonMod
     public override void OnInitializeMelon()
     {
         Instance = this;
+#if INERT
+        LoggerInstance.Msg("Inert build: no patches, the game's enchantment text is untouched.");
+        return;
+#endif
         Prefs.Init();
         if (!Prefs.Enabled.Value)
         {
@@ -29,5 +37,27 @@ public class EnchantTooltipMod : MelonMod
             LoggerInstance.Msg($"Unhandled dropped number: Source '{source}' = '{value}' (please report)");
         HarmonyInstance.PatchAll(typeof(EnchantTooltipMod).Assembly);
         LoggerInstance.Msg("Patches applied.");
+        try { RuneDetails.SelfTest(); } catch (Exception e) { LoggerInstance.Warning("Rune self-test: " + e); }
+
+        // After a hot reload the settings screens already exist; the Initialize postfix will not run for them.
+        if (Prefs.AddSettingsRows.Value)
+        {
+            try { SettingsRows.AddToLiveScreens(); }
+            catch (Exception e) { LoggerInstance.Warning("Adding rows to live settings screens: " + e.Message); }
+        }
+    }
+
+    public override void OnUpdate()
+    {
+        if (Prefs.Enabled is null) return; // inert build / not initialised
+        if (!Prefs.Enabled.Value || !Enum.TryParse(Prefs.ShowcaseKey.Value, true, out KeyCode key) || key == KeyCode.None) return;
+        if (Input.GetKeyDown(key)) LoggerInstance.Msg(Showcase.Cycle() + " Re-hover the item to refresh.");
+    }
+
+    /// <summary>Unload / hot reload: take our rows back off the game's settings screens.</summary>
+    public override void OnDeinitializeMelon()
+    {
+        try { SettingsRows.RemoveAll(); }
+        catch (Exception e) { LoggerInstance.Warning("SettingsRows.RemoveAll: " + e.Message); }
     }
 }

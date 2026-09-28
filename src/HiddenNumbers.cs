@@ -10,6 +10,9 @@ internal sealed class ModifierInfo
     public bool IsTrait;
     /// <summary>Stat names of the StatModifiers then ItemStatModifiers, in the order their packets are emitted.</summary>
     public List<string> StatNames = new();
+    /// <summary>Sign of each stat modifier's value (same order as StatNames). The game prints magnitudes only
+    /// ("reduced by {0}"), so the sign must come from the data.</summary>
+    public List<int> StatSigns = new();
     /// <summary>StatModifier stats that are per-second rates (HealthDrain, FocusDrain, HealthRegen).</summary>
     public HashSet<int> RateStatIndices = new();
     /// <summary>A PeriodicModifier ticking per distance moved (Proud Lance): its period and status are not shown.</summary>
@@ -72,7 +75,7 @@ internal static class HiddenNumbers
                 // Lines with a {N} that carry extra stat packets are status "markers" (dummy Durability +1).
                 if (anyUsed) continue;
                 if (info.IsTrait && thisStat < info.StatNames.Count)
-                    parts.Add(Signed(value) + " " + info.StatNames[thisStat]);
+                    parts.Add(Signed(value, thisStat < info.StatSigns.Count ? info.StatSigns[thisStat] : 0) + " " + info.StatNames[thisStat]);
                 else if (info.RateStatIndices.Contains(thisStat))
                     parts.Add(value + "/s");
                 else
@@ -115,7 +118,11 @@ internal static class HiddenNumbers
         if (info.SprintSeconds is { } sprint && sprint > 0)
             parts.Add($"after {Num(sprint)}s of sprinting");
         if (info.NearbyRadius is { } radius)
-            parts.Add(info.NearbyMaxEnemies is { } max ? $"max {max}, within {Num(radius)}m" : $"within {Num(radius)}m");
+        {
+            // Whole metres: tooltip space matters more than the 7.07.
+            string r = System.Math.Round(radius).ToString(CultureInfo.InvariantCulture);
+            parts.Add(info.NearbyMaxEnemies is { } max ? $"max {max}, within {r}m" : $"within {r}m");
+        }
 
         string plainLine = Plain(line);
         if (conditionPacketDropped && info.SelfCondition is { } self) parts.Add(ConditionText(self, plainLine));
@@ -137,5 +144,9 @@ internal static class HiddenNumbers
 
     private static string Plain(string s) => Tags.Replace(s, "").Trim();
 
-    private static string Signed(string v) => v.Length > 0 && char.IsDigit(v[0]) ? "+" + v : v;
+    private static string Signed(string v, int sign)
+    {
+        string magnitude = v.TrimStart('+', '-');
+        return sign < 0 ? "-" + magnitude : "+" + magnitude;
+    }
 }

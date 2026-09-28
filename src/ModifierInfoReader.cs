@@ -31,6 +31,7 @@ internal static class ModifierInfoReader
         ReadNearbyScaler(ctx, md, info);
 
         var itemStats = new List<string>();
+        var itemSigns = new List<int>();
         var mods = md.Modifiers;
         if (mods != null)
         {
@@ -43,12 +44,14 @@ internal static class ModifierInfoReader
                 {
                     if (RateStats.Contains(stat.StatType)) info.RateStatIndices.Add(info.StatNames.Count);
                     info.StatNames.Add(Label(stat.StatType.ToString()));
+                    info.StatSigns.Add(Sign(stat.ScalingData));
                     continue;
                 }
                 var itemStat = m.TryCast<ItemStatModifier>();
                 if (itemStat != null)
                 {
                     itemStats.Add(Label(itemStat.StatType.ToString()));
+                    itemSigns.Add(Sign(itemStat.ScalingData));
                     continue;
                 }
                 var periodic = m.TryCast<PeriodicModifier>();
@@ -77,6 +80,7 @@ internal static class ModifierInfoReader
         }
         // ExtractDescriptionData emits all StatModifier packets, then all ItemStatModifier packets.
         info.StatNames.AddRange(itemStats);
+        info.StatSigns.AddRange(itemSigns);
         return info;
     }
 
@@ -102,6 +106,15 @@ internal static class ModifierInfoReader
             }
             return;
         }
+    }
+
+    /// <summary>Sign of a modifier's value at level 0 (traits and enchant stats never change sign with level).</summary>
+    private static int Sign(ScalingData data)
+    {
+        var curve = data.Scaling;
+        if (curve == null) return 0;
+        long raw = curve.Evaluate(new Il2CppPhoton.Deterministic.FP { RawValue = 0 }).RawValue;
+        return raw < 0 ? -1 : raw > 0 ? 1 : 0;
     }
 
     private static Condition? FirstRatioCondition(Il2CppSystem.Collections.Generic.List<EntityCondition>? list)
@@ -130,6 +143,6 @@ internal static class ModifierInfoReader
         return stat == null ? null : new Condition(stat, c.ComparisonType == ComparisonType.LessThan, t);
     }
 
-    private static string Label(string enumName) =>
+    internal static string Label(string enumName) =>
         Labels.TryGetValue(enumName, out var l) ? l : CamelSplit.Replace(enumName, " ");
 }

@@ -25,11 +25,35 @@ internal static class GetDescriptionPatch
         AccessTools.Method(typeof(EnchantmentDescriptionExtension), nameof(EnchantmentDescriptionExtension.GetDescription),
             new[] { typeof(IAssetResolutionContext), typeof(EnchantmentData), typeof(ScalingMeta), typeof(bool), typeof(bool) });
 
+    /// <summary>Showcase (F10): render another enchantment that could roll in this line's place (see Showcase).
+    /// The real line's roll and exalt level are kept; one showcase set exalts one line x4.</summary>
+    static void Prefix(IAssetResolutionContext f, ref EnchantmentData enchantmentData, ref ScalingMeta scalingMeta,
+        bool extractRanges, ref bool isExalted)
+    {
+        if (_inside || extractRanges || !Showcase.Active || !Prefs.Enabled.Value || enchantmentData == null) return;
+        try
+        {
+            var swap = Showcase.Swap(f, enchantmentData, out bool exalt);
+            if (swap == null) return;
+            enchantmentData = swap;
+            if (exalt)
+            {
+                scalingMeta.Level = new FP { RawValue = Showcase.ExaltStacks * RawOne };
+                isExalted = true;
+            }
+        }
+        catch (Exception e)
+        {
+            EnchantTooltipMod.Log.Warning("Showcase swap: " + e.Message);
+        }
+    }
+
     static void Postfix(IAssetResolutionContext f, EnchantmentData enchantmentData, ScalingMeta scalingMeta,
         bool extractRanges, bool isExalted, ref EnchantmentDescriptionPiece __result)
     {
-        // extractRanges=true callers already show the game's own "max-min" text.
-        if (_inside || extractRanges || !Prefs.Enabled.Value) return;
+        // extractRanges=true callers (gem tooltips, the enchant reroll screen) already show the game's own "max-min"
+        // text: no range merge there, but hidden numbers still apply (e.g. Black Pearl's "at Low Health" = <50%).
+        if (_inside || !Prefs.Enabled.Value) return;
         var rolled = __result.Description;
         if (string.IsNullOrEmpty(rolled)) return;
 
@@ -37,7 +61,7 @@ internal static class GetDescriptionPatch
         try
         {
             string text = rolled;
-            if (Prefs.ShowRanges.Value)
+            if (Prefs.ShowRanges.Value && !extractRanges)
             {
                 string best = Render(f, enchantmentData, WithInterval(scalingMeta, 0), isExalted);
                 string worst = Render(f, enchantmentData, WithInterval(scalingMeta, RawOne), isExalted);
@@ -47,7 +71,8 @@ internal static class GetDescriptionPatch
                     EnchantTooltipMod.Log.Msg($"interval={scalingMeta.Interval.RawValue} roll={roll}%\n  rolled: {rolled}\n  best:   {best}\n  worst:  {worst}\n  out:    {merged ?? "(unchanged)"}");
                 if (merged != null) text = merged;
             }
-            if (Prefs.ShowHiddenNumbers.Value)
+            bool isFacet = enchantmentData.Type == EnchantmentType.Trait;
+            if (isFacet ? Prefs.ShowFacetNumbers.Value : Prefs.ShowDetailedInfo.Value)
             {
                 var extra = DescribeHidden(f, enchantmentData, scalingMeta, isExalted, rolled);
                 if (extra != null) text += Prefs.HiddenFormat.Value.Replace("{extra}", extra);
@@ -109,3 +134,4 @@ internal static class GetDescriptionPatch
         return (int)System.Math.Round(100.0 * (RawOne - intervalRaw) / RawOne);
     }
 }
+
