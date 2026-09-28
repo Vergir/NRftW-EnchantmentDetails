@@ -21,6 +21,7 @@ internal static class RuneDetails
     private const float One = 65536f;
     private static readonly Dictionary<string, string?> Cache = new();
     private static readonly HashSet<string> Failed = new();
+    private static bool _selfTestDone;
 
     public static string? Describe(Il2Cpp.HeroRuneDataAsset asset)
     {
@@ -49,7 +50,7 @@ internal static class RuneDetails
     public static void SelfTest()
     {
         string input = System.IO.Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory, "EnchantTooltip.selftest.txt");
-        if (!System.IO.File.Exists(input)) return;
+        if (_selfTestDone || !System.IO.File.Exists(input) || Il2Cpp.AssetBase.Resolve == null) return;
         var output = new List<string>();
         output.Add($"# live expected weapon damage: {LiveExpectedWeaponDamage()?.ToString() ?? "n/a"}");
         foreach (var line in System.IO.File.ReadAllLines(input))
@@ -61,6 +62,10 @@ internal static class RuneDetails
             catch (Exception e) { text = "ERROR " + e.Message; }
             output.Add($"{line.Substring(0, cut)}	{text}");
         }
+        int blank = output.Count(l => l.EndsWith("(none)"));
+        if (blank == output.Count(l => !l.StartsWith("#"))) return; // asset database not ready yet: retry on the next scene
+        _selfTestDone = true;
+        output.Insert(0, $"# {blank} runes without details");
         System.IO.File.WriteAllLines(System.IO.Path.ChangeExtension(input, ".out.txt"), output);
         EnchantTooltipMod.Log.Msg($"Rune self-test: {output.Count} runes written to EnchantTooltip.selftest.out.txt");
     }
@@ -82,11 +87,7 @@ internal static class RuneDetails
         {
             if (i % 2 == 0) { sb.Append(parts[i]); continue; }
             float mult = float.Parse(parts[i], CultureInfo.InvariantCulture);
-            string amount = expected is { } e
-                ? Math.Round(mult * e.Min) == Math.Round(mult * e.Max)
-                    ? $"≈{Math.Round(mult * e.Max)} dmg"
-                    : $"≈{Math.Round(mult * e.Min)}–{Math.Round(mult * e.Max)} dmg"
-                : $"{Pct(mult)} base dmg";
+            string amount = expected is { } e ? $"≈{Math.Round(mult * e)} dmg" : $"{Pct(mult)} base dmg";
             sb.Append(amount + ", grows with weapon LVL, not weapon DMG");
         }
         return sb.ToString();
@@ -94,8 +95,8 @@ internal static class RuneDetails
 
     /// <summary>Expected weapon damage for the local hero: exact (the game's own hero path) while a weapon is drawn;
     /// in town the weapons are put away and the game has no mainhand, so every main-hand weapon set's item level is
-    /// evaluated instead (min..max). Null outside a game.</summary>
-    private static (float Min, float Max)? LiveExpectedWeaponDamage()
+    /// evaluated instead and averaged (tooltips stay short). Null outside a game.</summary>
+    private static float? LiveExpectedWeaponDamage()
     {
         try
         {
@@ -110,19 +111,20 @@ internal static class RuneDetails
                 if (EquipmentAPI.GetEquippedMainhand(frame, hero).Index != 0 || EquipmentAPI.GetEquippedOffhand(frame, hero).Index != 0)
                 {
                     float v = F(StatsSystem.ExpectedStats.GetExpectedWeaponDamage(frame, hero));
-                    return v > 0 ? (v, v) : null;
+                    return v > 0 ? v : null;
                 }
-                float min = float.MaxValue, max = 0;
+                float sum = 0;
+                int count = 0;
                 foreach (var slot in new[] { EquipmentSlot.RightHand1, EquipmentSlot.RightHand2, EquipmentSlot.RightHand3 })
                 {
                     var item = EquipmentAPI.GetItemEntity(frame, slot, hero);
                     if (item.Index == 0) continue;
                     float v = F(ItemStatsSystem.GetExpectedWeaponDamage(new IAssetResolutionContext(frame.Pointer), ItemsAPI.GetLevel(frame, item)));
                     if (v <= 0) continue;
-                    min = Math.Min(min, v);
-                    max = Math.Max(max, v);
+                    sum += v;
+                    count++;
                 }
-                return max > 0 ? (min, max) : null;
+                return count > 0 ? sum / count : null;
             }
             return null;
         }
@@ -250,9 +252,9 @@ internal static class RuneDetails
                 return;
             }
             if (mults.All(m => Math.Abs(m - mults[0]) < 0.001f))
-                _damage.Add(mults.Count == 1 ? $"{Pct(mults[0])} weapon damage" : $"{mults.Count} hits × {Pct(mults[0])} weapon damage");
+                _damage.Add(mults.Count == 1 ? $"{Pct(mults[0])} weapon dmg" : $"{mults.Count} hits × {Pct(mults[0])} weapon dmg");
             else
-                _damage.Add($"{mults.Count} hits, {Pct(mults.Min()).TrimEnd('%')}–{Pct(mults.Max())} each, {Pct(mults.Sum())} total weapon damage");
+                _damage.Add($"{mults.Count} hits, {Pct(mults.Min()).TrimEnd('%')}–{Pct(mults.Max())} each, {Pct(mults.Sum())} total weapon dmg");
         }
 
         private void ProjectileEvents(Il2CppSystem.Collections.Generic.List<ActionProjectileEvent> events)
@@ -270,7 +272,7 @@ internal static class RuneDetails
             if (text != null) _damage.Add(count > 1 ? $"{count} × {text}" : text);
             if (ammoShots > 0)
             {
-                string each = $"{Pct(Mult(_base, default))} weapon damage";
+                string each = $"{Pct(Mult(_base, default))} weapon dmg";
                 string shots = _multishot ?? ammoShots.ToString();
                 _damage.Add($"{shots} {(_multishot != null || ammoShots > 1 ? "shots" : "shot")} × {each}");
             }
@@ -279,16 +281,33 @@ internal static class RuneDetails
         private string? ProjectileText(ProjectileData p)
         {
             var strikes = DamageArray(p.StrikeDamageData);
-            if (strikes.Length == 0) return null;
+            string? health = ExpectedHealthDamage(p.Payloads);
+            if (strikes.Length == 0) return health;
             var mults = strikes.Select(Mult).ToList();
             string text;
-            if (mults.Distinct().Count() == 1) text = $"{Pct(mults[0])} weapon damage";
-            else if (_charged) text = $"{string.Join("/", mults.Select(m => Pct(m).TrimEnd('%')))}% weapon damage by charge";
-            else text = $"{Pct(mults.Min()).TrimEnd('%')}–{Pct(mults.Max())} weapon damage";
+            if (mults.Distinct().Count() == 1) text = $"{Pct(mults[0])} weapon dmg";
+            else if (_charged) text = $"{string.Join("/", mults.Select(m => Pct(m).TrimEnd('%')))}% weapon dmg by charge";
+            else text = $"{Pct(mults.Min()).TrimEnd('%')}–{Pct(mults.Max())} weapon dmg";
             var expl = DamageArray(p.ExplosionDamageData);
             if (expl.Length > 0 && (p.ExplodeOnExpiration || (int)p.ExplodeOnHit != 0))
                 text += $" + {Pct(Mult(expl[expl.Length - 1]))} explosion";
-            return text;
+            return health == null ? text : text + " + " + health;
+        }
+
+        /// <summary>DamagePayloads whose amount is ExpectedHealthAmountProvider: a fraction of the TARGET's expected
+        /// health (StatsSystem.ExpectedStats.GetExpectedHealth(f, target) = the typical HP of an enemy of that level,
+        /// 70 at level 1, 310 at 19, 950 at 30), independent of the weapon. Throw Axe 30%, Throw Knife 20%.</summary>
+        private static string? ExpectedHealthDamage(PayloadData? data)
+        {
+            if (data?.Payloads == null) return null;
+            float sum = 0;
+            foreach (var p in data.Payloads)
+            {
+                var provider = p?.TryCast<DamagePayload>()?.Amount?.TryCast<ExpectedHealthAmountProvider>();
+                var curve = provider?.ScalingData.Scaling;
+                if (curve != null) sum += F(curve.Evaluate(new FP { RawValue = 0 }));
+            }
+            return sum > 0 ? $"{Pct(sum)} of typical enemy HP" : null;
         }
 
         private void Entity(AssetGuid guid)
@@ -335,14 +354,10 @@ internal static class RuneDetails
                         break;
                     }
                     string text = Math.Abs(hi - lo) < 0.001f
-                        ? $"{Pct(m * hi)} weapon damage"
-                        : $"{Pct(m * lo).TrimEnd('%')}–{Pct(m * hi)} weapon damage by charge";
+                        ? $"{Pct(m * hi)} weapon dmg"
+                        : $"{Pct(m * lo).TrimEnd('%')}–{Pct(m * hi)} weapon dmg by charge";
                     float duration = owner == null ? 0 : F(owner.InstanceDuration);
-                    // Only continuous damage ticks on the same enemy again; otherwise the repeat just moves/refreshes the
-                    // area and each enemy is hit once (damage ids are deduplicated), e.g. Tremor Wave's 0.01s.
-                    if (s.Damage.IsContinuousDamage && repeat > 0)
-                        text += duration > 0 ? $" every {S(repeat)}s for {S(duration)}s"
-                            : $" every {S(repeat)}s"; // channelled beams: the drain part says "while channelling"
+                    text = RepeatText(text, m * hi, repeat, duration, s.Damage.UniqueDamageId || s.Reaction == Il2Cpp.CascadeReactionType.DirectDamage, _channelled);
                     float radius = owner == null ? 0 : F(owner.InstanceRadius) * (s.DamageArea.Shape == null ? 1 : F(s.DamageArea.Shape.Radius));
                     if (radius >= 2) text += $" in {N(radius)}m";
                     _damage.Add(text);
@@ -360,6 +375,26 @@ internal static class RuneDetails
                     Entity(s.EntityToSpawn.Id);
                     break;
             }
+        }
+
+        /// <summary>How often a repeating cascade damages one enemy (analysis/cascade_rehit.md, traced 2026-09-29):
+        /// the sim runs at 60 Hz and the repeat timer is reset, so ticks are ceil(repeat / frame) frames apart
+        /// (0.05s -> 0.067s, 0.15s -> 0.167s). Without UniqueDamageId every tick reuses the cast's damage id and
+        /// DamageResolverComponent.TryRegisterDamageID drops the same id on the same target for 60 frames, so the enemy
+        /// is hit at most once per second. With UniqueDamageId (and DirectDamage) every tick is a new hit.
+        /// IsContinuousDamage does not affect this (it only skips poise, lifesteal, focus gain...).</summary>
+        private static string RepeatText(string text, float mult, float repeat, float duration, bool unique, bool channelled)
+        {
+            // Without a duration or a channel nothing says how long it keeps ticking (Frigid Arc, Frost Step): per hit only.
+            if (repeat <= 0 || (duration <= 0 && !channelled)) return text;
+            const float frame = 1092f / 65536f; // FP(1/60) as the sim computes it
+            int k = (int)Math.Ceiling(repeat / frame - 0.001f);
+            float every = k * frame;
+            string span = duration > 0 ? $" for {S(duration)}s" : ""; // no duration: channelled, the drain says so
+            if (every >= 1f) return $"{text} every {S(every)}s{span}";
+            // Sub-second repeats as a rate. Shared damage id: capped at one hit per second per enemy, reached only
+            // while the enemy stays inside ("up to"). Unique ids: every tick hits, exact.
+            return unique ? $"{Pct(mult / every)} weapon dmg/s{span}" : $"up to {Pct(mult)} weapon dmg/s{span}";
         }
 
         private void Payloads(PayloadData? data, float repeat, bool allies)

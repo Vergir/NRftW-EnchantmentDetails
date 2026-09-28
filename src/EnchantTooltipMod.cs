@@ -54,6 +54,13 @@ public class EnchantTooltipMod : MelonMod
         if (Input.GetKeyDown(key)) LoggerInstance.Msg(Showcase.Cycle() + " Re-hover the item to refresh.");
     }
 
+    /// <summary>Development audit (see RuneDetails.SelfTest): the asset database is ready only after the first scenes.</summary>
+    public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+    {
+        if (Prefs.Enabled is null || !Prefs.Enabled.Value) return;
+        try { RuneDetails.SelfTest(); } catch (Exception e) { LoggerInstance.Warning("Rune self-test: " + e.Message); }
+    }
+
     /// <summary>Unload / hot reload: take our rows back off the game's settings screens.</summary>
     public override void OnDeinitializeMelon()
     {
