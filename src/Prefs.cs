@@ -16,7 +16,6 @@ internal static class Prefs
     public static MelonPreferences_Entry<bool> ShowRanges = null!;
     public static MelonPreferences_Entry<bool> ShowFacetNumbers = null!;
     public static MelonPreferences_Entry<bool> ShowDetailedInfo = null!;
-    public static MelonPreferences_Entry<bool> ShowRuneDetails = null!;
     public static MelonPreferences_Entry<bool> AddSettingsRows = null!;
     public static MelonPreferences_Entry<string> HiddenFormat = null!;
     public static MelonPreferences_Entry<string> ShowcaseKey = null!;
@@ -37,12 +36,10 @@ internal static class Prefs
         ShowDetailedInfo = _cat.CreateEntry("ShowDetailedInfo", true,
             description: "Append numbers the enchantment text leaves out: drain rates, tick intervals, cooldowns, Low Health/Focus "
                 + "thresholds, sprint time, nearby-enemy cap and radius. Also in Options > Gameplay.");
-        ShowRuneDetails = _cat.CreateEntry("ShowRuneDetails", true,
-            description: "Append what a rune really does: heal amounts, buffs, damage as % of weapon damage, channelling drain. Also in Options > Gameplay.");
         HiddenFormat = _cat.CreateEntry("HiddenFormat", DefaultHiddenFormat,
             description: "Appended to lines with hidden numbers. {extra} = the numbers, e.g. \"1/s\" or \"<50%\".");
         AddSettingsRows = _cat.CreateEntry("AddSettingsRows", true,
-            description: "Add the four toggles above to Options > Gameplay.");
+            description: "Add the three toggles above to Options > Gameplay.");
         ShowcaseKey = _cat.CreateEntry("ShowcaseKey", "F10",
             description: "Unity KeyCode that cycles 3 screenshot showcase sets, then off: every enchantment line is swapped for another "
                 + "that could roll in the same place (same colour, valid for the item, no duplicates); set 3 exalts one line x4. "

@@ -19,8 +19,8 @@ internal static class SettingsRows
     private const PlayerSettingCategory Category = PlayerSettingCategory.Gameplay;
     // Alternate1: the only scheme style that does not arm the game's "preview keyboard scheme" button while hovered.
     private const KeyboardAndMouseStyle ToggleStyle = KeyboardAndMouseStyle.Alternate1;
-    private const string SpacerId = "ET_Spacer", RangesId = "ET_Ranges", FacetsId = "ET_Facets", DetailsId = "ET_Details", RunesId = "ET_Runes";
-    private static readonly string[] AllIds = { SpacerId, RangesId, FacetsId, DetailsId, RunesId };
+    private const string SpacerId = "ET_Spacer", RangesId = "ET_Ranges", FacetsId = "ET_Facets", DetailsId = "ET_Details";
+    private static readonly string[] AllIds = { SpacerId, RangesId, FacetsId, DetailsId };
 
     private static readonly Dictionary<string, LocalizedMessage> _messages = new Dictionary<string, LocalizedMessage>();
 
@@ -52,10 +52,6 @@ internal static class SettingsRows
             "Add numbers the enchantment text leaves out: drain per second, tick intervals, cooldowns, Low Health / Focus thresholds, "
                 + "sprint time, nearby enemy cap and radius (Enchant Tooltip).",
             Prefs.ShowDetailedInfo);
-        AddToggle(controls, content, RunesId, "Show Rune Details",
-            "Show what a rune really does: heal amounts, buffs, damage as a percentage of weapon damage, focus drain while "
-                + "channelling (Enchant Tooltip).",
-            Prefs.ShowRuneDetails);
         EnchantTooltipMod.Log.Msg("Added Enchant Tooltip rows to Options > Gameplay");
     }
 

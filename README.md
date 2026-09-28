@@ -1,7 +1,9 @@
 # EnchantTooltip
 
-MelonLoader mod for No Rest for the Wicked: shows the possible range next to every rolled enchantment value,
+MelonLoader mod for No Rest for the Wicked: shows the possible range next to every rolled enchantment value
+(including gems and facets, which are enchantments too),
 e.g. `Damage increased by 7% (3–10)`, `-6% Stamina cost (3–10)`. Display only; the Quantum simulation is untouched.
+Rune details moved to the separate `mods/RuneInfo` mod (split at 0.4.1).
 
 ## How it works
 
@@ -34,43 +36,6 @@ which packets were dropped (any language), reads the enchantment's `ModifierData
 
 Data behind it: `analysis/enchant_hidden_numbers.md` (tools/enchant_extract.py).
 
-### Rune details
-
-Rune texts are fixed strings without numbers (`HeroItemDataAsset.GetDescription()`, no packets). A postfix on that
-parameterless method appends what the rune's `HeroRuneData.Actions[0]` really does, walked at runtime with the game's
-context-free resolver `AssetBase.Resolve` (`RuneDetails`, mirrors `tools/rune_extract.py`):
-
-| Rune kind | Shown |
-|---|---|
-| instant heal / restore | `Heals 40 HP`, `Restores 25 Durability` |
-| channelled aura | `Heals 30 HP/s to you and allies; drains 40 Focus/s while channelling` |
-| self buff | `+20% Overall Damage Dealt for 120s`, or `lasts 60s` for infusions |
-| melee rune attack | `350% weapon dmg`, `4 hits × 100% weapon dmg`, `3 hits, 150–200% each, 500% total weapon dmg` |
-| projectiles / spells | `130/150/200% weapon dmg by charge`, `320–800% weapon dmg by charge`, `1100% weapon dmg in 6m`, `3–10 shots × 80% weapon dmg` (ammo fired) |
-| damage over time | `up to 350% weapon dmg/s for 4s` (repeating area, shared damage id: max one hit per second per enemy while inside), `270% weapon dmg every 1.5s for 5s` (repeat ≥ 1s); beams `120% weapon dmg/s; drains 20 Focus/s while channelling` (unique ids, every 1/60-rounded tick hits); no rate without a duration or channel |
-| throws | `70% weapon dmg + 30% of typical enemy HP` (Throw Axe), `100% weapon dmg + 20% of typical enemy HP` (Throw Knife): projectile `DamagePayload` with `ExpectedHealthAmountProvider` = fraction of the target's expected health (typical HP for its level: 70 at 1, 310 at 19, 950 at 30) |
-| no damage | `knockdown, no damage` (Scream) |
-| kicks (Swipe/Turnback/Frontflip Kick, Dropkick) | `≈161 dmg, grows with weapon LVL, not weapon DMG` with a weapon drawn; `≈153 dmg, …` in town (weapons put away: mean over the main-hand weapon sets); `3100% base dmg, …` outside a game |
-
-Heals are before your Healing stat and damage is a multiple of the weapon's Damage stat (runes have no level). The
-rune screen shows only the paragraph after the first line break, so the text is appended in-line.
-Details: empty charge curves count as ×1 and real ones are sampled over the spell's Min..MaxCharge; `DamageBalanceData`
-arrays are read from native memory (0x58-byte stride; the interop struct is smaller); repeats follow
-`analysis/cascade_rehit.md`: without `UniqueDamageId` a repeating area hits one enemy at most once per second (damage-id
-dedupe, 60 frames), with it every tick hits; tick times are rounded up to 1/60 s frames (0.15s -> 0.17s).
-Audit: put `name guid` lines (from `analysis/rune_inventory.csv`) in `UserData/EnchantTooltip.selftest.txt`; on load the
-mod writes every rune's text to `EnchantTooltip.selftest.out.txt` once the asset database is ready (first scene load; the first line counts runes without details) (2026-09-28: 262 runes, 251 with details, none odd).
-Kicks: their `DamageConfig.CustomDamageProvider` is `ExpectedWeaponDamageAmountProviderNode`; `ResolveOverlapResult`
-(@0x05B8C659) adds its amount to BaseDamage and sets `DamageFlags.IgnoreEntityBaseDamage`, so the hit is
-multiplier × `StatsSystem.ExpectedStats.GetExpectedWeaponDamage(frame, hero)` = 2 × (1 + 5.8 × (weaponItemLevel − 1) / 29)
-(`BalanceConfigData.Weapon.CoreStatScaling[Damage]`). The weapon's Damage stat, facets, attributes and upgrades don't
-apply. Verified in game 2026-09-28: Swipe Kick 88 vs 32 for a 60-Damage item-level-9 spear (161 / 60 = 2.7x).
-The live value comes from the local `HeroView` (`IsLocalPlayer`: `EntityRef` + `VerifiedFrame`), no hook. In town the
-game reports no mainhand (weapons put away) and its own function would fall back to character level (1760 for Frontflip
-Kick at level 19), so the mod then evaluates `ItemStatsSystem.GetExpectedWeaponDamage(ctx, itemLevel)` for the items in
-`EquipmentSlot.RightHand1..3` and shows their mean.
-Research: `analysis/rune_numbers.md`.
-
 Research (roll encoding, distribution, RVAs) is in the workspace root README, "Enchantment tooltip roll range".
 
 ## Preferences (`UserData/MelonPreferences.cfg`, `[EnchantTooltip]`)
@@ -82,8 +47,7 @@ Research (roll encoding, distribution, RVAs) is in the workspace root README, "E
 | `ShowRanges` | `true` | In game: Options > Gameplay > **Show Enchantment Ranges**. |
 | `ShowFacetNumbers` | `true` | **Show Facet Numbers**: trait values, e.g. `Heavy (+20% Damage, +25% Attack Stamina Cost)`; also hides the game's facet keyword pop-up (`InventoryItemInfoElement.PopulateKeywordTooltips` postfix). |
 | `ShowDetailedInfo` | `true` | **Show Detailed Enchantment Info**: every other hidden number (see above). |
-| `ShowRuneDetails` | `true` | **Show Rune Details** (see above). |
-| `AddSettingsRows` | `true` | Add the four toggles to Options > Gameplay (after a divider, rows named `ET_*`). |
+| `AddSettingsRows` | `true` | Add the three toggles to Options > Gameplay (after a divider, rows named `ET_*`). |
 | `HiddenFormat` | ` <color=#9A9A9A>({extra})</color>` | Appended to lines with hidden numbers. |
 | `ShowcaseKey` | `F10` | Screenshot helper, cycles 3 sets then off: each enchantment line is swapped for another that could roll in the same place (same colour, valid on every item type the original is, no duplicates or same-group pairs, unique lines kept, real roll and exalt kept; set 3 exalts one line x4). Display only. |
 | `Debug` | `false` | Log rolled / best / worst / merged text of every enchantment line. |

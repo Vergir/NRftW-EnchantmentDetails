@@ -3,7 +3,7 @@ using System;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(EnchantTooltipMod), "EnchantTooltip", "0.4.0", "vergir")]
+[assembly: MelonInfo(typeof(EnchantTooltipMod), "EnchantTooltip", "0.5.0", "vergir")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 // MelonLoader would otherwise apply every [HarmonyPatch] in this assembly by itself, ignoring Enabled (and the INERT build).
 [assembly: HarmonyDontPatchAll]
@@ -37,7 +37,6 @@ public class EnchantTooltipMod : MelonMod
             LoggerInstance.Msg($"Unhandled dropped number: Source '{source}' = '{value}' (please report)");
         HarmonyInstance.PatchAll(typeof(EnchantTooltipMod).Assembly);
         LoggerInstance.Msg("Patches applied.");
-        try { RuneDetails.SelfTest(); } catch (Exception e) { LoggerInstance.Warning("Rune self-test: " + e); }
 
         // After a hot reload the settings screens already exist; the Initialize postfix will not run for them.
         if (Prefs.AddSettingsRows.Value)
@@ -52,13 +51,6 @@ public class EnchantTooltipMod : MelonMod
         if (Prefs.Enabled is null) return; // inert build / not initialised
         if (!Prefs.Enabled.Value || !Enum.TryParse(Prefs.ShowcaseKey.Value, true, out KeyCode key) || key == KeyCode.None) return;
         if (Input.GetKeyDown(key)) LoggerInstance.Msg(Showcase.Cycle() + " Re-hover the item to refresh.");
-    }
-
-    /// <summary>Development audit (see RuneDetails.SelfTest): the asset database is ready only after the first scenes.</summary>
-    public override void OnSceneWasLoaded(int buildIndex, string sceneName)
-    {
-        if (Prefs.Enabled is null || !Prefs.Enabled.Value) return;
-        try { RuneDetails.SelfTest(); } catch (Exception e) { LoggerInstance.Warning("Rune self-test: " + e.Message); }
     }
 
     /// <summary>Unload / hot reload: take our rows back off the game's settings screens.</summary>
