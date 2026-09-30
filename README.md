@@ -6,7 +6,7 @@ A [MelonLoader](https://github.com/LavaGang/MelonLoader) mod for **No Rest for t
 enchantments, gems and facets really do. You get the range every value can roll in, plus the numbers the game computes
 but never prints.
 
-Download: [GitHub releases](https://github.com/vergir/NRftW-EnchantmentDetails/releases/latest)
+Download: [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/106) · [GitHub releases](https://github.com/vergir/NRftW-EnchantmentDetails/releases/latest)
 
 ## Features
 
