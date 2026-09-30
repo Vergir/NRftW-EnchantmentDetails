@@ -2,12 +2,11 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace EnchantTooltip;
+namespace EnchantmentDetails;
 
 /// <summary>
-/// Pure string logic (no game types, unit-testable): zips the numbers of three renderings of the same enchantment
-/// line - the rolled one, the best-roll one and the worst-roll one - and appends the range after every number
-/// that differs between best and worst. Any structural mismatch returns null so the caller keeps the game's text.
+/// Pure string logic: zips the numbers of the rolled, best-roll and worst-roll renders of one line and appends the
+/// range after every number that differs. Returns null on any structural mismatch (the game's text is kept).
 /// </summary>
 internal static class RangeMerger
 {

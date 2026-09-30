@@ -1,0 +1,52 @@
+[size=5][b]Enchantment Details[/b][/size]
+
+See what your enchantments, gems and facets really do: the range every value can roll in, and the numbers the game computes but never prints.
+
+[size=4][b]Features[/b][/size]
+[list]
+[*][b]Roll ranges:[/b] every rolled value shows its worst–best range, so you see at a glance how good a roll is: [i]Damage increased by 7% (3–10)[/i]. On item tooltips, stored enchantments, previews and exalt pop-ups, following exalt stacks.
+[*][b]Detailed enchantment info:[/b] many enchantments hide their numbers. The mod adds them:
+[list]
+[*][i]Drain Health in Combat (1/s)[/i], [i]Deal 25% Fire Damage while Blocking (every 1s)[/i]
+[*][i]Gain 20% Lifesteal at Low Health (<50%)[/i], [i]Execute Infected Low Health Enemies (<20% HP)[/i]
+[*][i]Healing increased by 20% at Low Focus (<30%)[/i], [i]Stamina Cost reduced by 10% at Low Focus (<30%)[/i]
+[*][i]Damage increased by 5% for each Nearby Enemy (max 5, within 7m)[/i]
+[*][i]Damage increased by 10% after Sprinting for 4 seconds (after 2s of sprinting)[/i]
+[*][i]Refill Stamina on Parry (100%)[/i], internal cooldowns like [i](5s cooldown)[/i]
+[/list]
+Also on gem tooltips and the enchantment reroll screen.
+[*][b]Facet numbers:[/b] facets show what they change, downside included: [i]Heavy (+20% Damage, +25% Attack Stamina Cost)[/i], [i]Durable (+75 Durability, -10% Focus Gain)[/i]. The game's facet pop-up, which says the same without numbers, is hidden.
+[/list]
+Everything the mod adds is a small grey note; the game's own text is never changed. Each part can be switched off with a checkbox at the end of [b]Options > Gameplay[/b].
+
+The numbers are read from the game data when the tooltip is drawn, so they stay correct after balance patches. The few words the mod adds ("every", "cooldown", "only below", stat names) are English.
+
+[size=4][b]Requirements[/b][/size]
+[list]
+[*][url=https://github.com/LavaGang/MelonLoader/releases]MelonLoader[/url] 0.7.3 or newer.
+[/list]
+
+[size=4][b]Installation[/b][/size]
+[list=1]
+[*]Install MelonLoader into the game folder and start the game once.
+[*]Extract the mod's zip into the game folder, so that [i]EnchantmentDetails.dll[/i] ends up in the [i]Mods[/i] folder.
+[/list]
+
+[b]Steam Deck / Linux (Proton):[/b]
+[list=1]
+[*]Copy the files from MelonLoader's [i]MelonLoader.x64.zip[/i] (the Windows build) into the game folder, and the mod into [i]Mods[/i].
+[*]In Steam, open the game's Properties > General > Launch Options and enter: [code]WINEDLLOVERRIDES="version=n,b" %command%[/code]
+[*]Start the game. On the first start MelonLoader installs the .NET runtime it needs by itself; that start takes a minute or two.
+[/list]
+
+[size=4][b]Compatibility[/b][/size]
+[list]
+[*]Tested with game build 29466 and MelonLoader 0.7.3 on Windows.
+[*]Display only: nothing in the game simulation or your save is changed, so it does not affect co-op.
+[*]All settings are also in [i]UserData/MelonPreferences.cfg[/i], section [EnchantmentDetails], including the range and note formats.
+[*]Rune details are a separate mod: Rune Details.
+[/list]
+
+[size=4][b]Source[/b][/size]
+Source code, changelog and issue tracker: [url=https://github.com/vergir/NRftW-EnchantmentDetails]https://github.com/vergir/NRftW-EnchantmentDetails[/url]
+License: MIT

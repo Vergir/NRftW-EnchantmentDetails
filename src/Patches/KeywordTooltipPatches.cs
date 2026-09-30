@@ -1,14 +1,9 @@
 using HarmonyLib;
 using Il2CppMoon.Forsaken;
 
-namespace EnchantTooltip.Patches;
+namespace EnchantmentDetails.Patches;
 
-/// <summary>
-/// With Show Facet Numbers on, the facet line already says what the facet does in numbers, so the game's facet keyword
-/// pop-up ("Durable / Item Facet / Durability increased...") is hidden. PopulateKeywordTooltips (no parameters) activates
-/// KeywordTooltips[i] and fills it from m_data[i] for every keyword (loop @0x08F1FD50, build 29466); other keyword types
-/// (statuses like Frozen) keep their pop-ups.
-/// </summary>
+/// <summary>With Show Facet Numbers on, hide the facet keyword pop-ups; the facet line already shows the numbers.</summary>
 [HarmonyPatch(typeof(InventoryItemInfoElement), nameof(InventoryItemInfoElement.PopulateKeywordTooltips))]
 internal static class PopulateKeywordTooltipsPatch
 {
@@ -31,7 +26,7 @@ internal static class PopulateKeywordTooltipsPatch
         }
         catch (System.Exception e)
         {
-            EnchantTooltipMod.Log.Warning("Keyword tooltip postfix: " + e.Message);
+            EnchantmentDetailsMod.Log.Warning("Keyword tooltip postfix: " + e.Message);
         }
     }
 }

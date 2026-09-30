@@ -1,58 +1,102 @@
-# EnchantTooltip
+![Enchantment Details](docs/pics/nexus/header.jpg)
 
-MelonLoader mod for No Rest for the Wicked: shows the possible range next to every rolled enchantment value
-(including gems and facets, which are enchantments too),
-e.g. `Damage increased by 7% (3–10)`, `-6% Stamina cost (3–10)`. Display only; the Quantum simulation is untouched.
-Rune details moved to the separate `mods/RuneInfo` mod (split at 0.4.1).
+# Enchantment Details
 
-## How it works
+A [MelonLoader](https://github.com/LavaGang/MelonLoader) mod for **No Rest for the Wicked** that shows what your
+enchantments, gems and facets really do. You get the range every value can roll in, plus the numbers the game computes
+but never prints.
 
-`EnchantmentDescriptionExtension.GetDescription(IAssetResolutionContext, EnchantmentData, ScalingMeta, bool extractRanges, bool isExalted)`
-(private, RVA 0x8B65EE0 in build 29466) is the hub for every enchantment line: all public overloads (item tooltip,
-stored enchantments), the Radiant Ember boost preview, `EnchantmentConfig.Populate` and the exalt pop-ups call it.
+Download: [GitHub releases](https://github.com/vergir/NRftW-EnchantmentDetails/releases/latest)
 
-A Harmony postfix renders the same line twice more with `ScalingMeta.Interval` forced to 0 (best roll) and 1.0
-(worst roll), then `RangeMerger` zips the numbers of the three strings. Numbers that differ between best and worst
-get the range; fixed numbers (durations, stacks) and rich-text tags are left alone. If the three strings do not share
-the same template the game's text is kept. Calls with `extractRanges = true` (the game's own "max-min" view: gem
-tooltips, the enchant reroll screen) get no range merge, but still get the hidden numbers below.
+## Features
 
-### Hidden numbers
+* **Roll ranges.** Every rolled value shows its worst–best range, so you can see at a glance how good a roll is:
+  `Damage increased by 7% (3–10)`. It works on item tooltips, stored enchantments, previews and exalt pop-ups, and it
+  follows exalt stacks.
+* **Detailed enchantment info.** Many enchantments hide their numbers. The mod adds them:
+  * `Drain Health in Combat (1/s)`, `Deal 25% Fire Damage while Blocking (every 1s)`
+  * `Gain 20% Lifesteal at Low Health (<50%)`, `Execute Infected Low Health Enemies (<20% HP)`
+  * `Healing increased by 20% at Low Focus (<30%)`, `Stamina Cost reduced by 10% at Low Focus (<30%)`
+  * `Damage increased by 5% for each Nearby Enemy (max 5, within 7m)`,
+    `Damage increased by 10% after Sprinting for 4 seconds (after 2s of sprinting)`
+  * `Refill Stamina on Parry (100%)`, `Gain one stack of Furnace … (5s cooldown)`
 
-Many lines drop numbers the game has already computed ("Drain Health in Combat" = 1/s). `ResolveDescription` runs the value
-processor (`ProcessValue` / `ProcessExalted`) on every packet in slot order before `String.Format` ignores the ones the
-template never references. The mod renders the line once more with those processors returning sentinels, so it knows
-which packets were dropped (any language), reads the enchantment's `ModifierData` for context, and appends
-` (…)` via `HiddenNumbers`:
+  This also works on gem tooltips and the enchantment reroll screen.
+* **Facet numbers.** Facets show what they change, downside included:
+  `Heavy (+20% Damage, +25% Attack Stamina Cost)`, `Durable (+75 Durability, -10% Focus Gain)`. The game's facet pop-up,
+  which says the same without numbers, is hidden.
 
-| Dropped packet | Shown | Skipped |
-|---|---|---|
-| stat value on a line with no placeholder | `1/s` (drain/regen), `100%`, traits `+20% Damage, +25% Attack Stamina Cost` | lines with a `{N}`: extra stats there are dummy status markers |
-| periodic tick | `every 1s` | distance-based ticks (Proud Lance) |
-| status duration | `5s cooldown` | 60s+ debuffs, durations equal to one already in the text |
-| sprint time before an "after Sprinting" status (not a packet) | `after 2s of sprinting` | |
-| NearbyEnemiesScaler (not a packet) | `max 5, within 7m` (radius rounded to whole metres) (cap from the scaler curve, radius from BalanceConfig) | the cap on "no Enemies nearby" curves |
-| ModifierData / target Health-Focus-Stamina ratio threshold | `<50%` when the text says Low/High, else `only below 30% Focus` | 0% / 100% and absolute (Barrier, "Current") conditions |
+Everything the mod adds is a small grey note, and the game's own text is never changed. Every part can be switched off
+with a checkbox at the end of **Options > Gameplay**.
 
-Data behind it: `analysis/enchant_hidden_numbers.md` (tools/enchant_extract.py).
+The numbers come straight from the game data at the moment the tooltip is drawn, so they stay correct after balance
+patches. The few words the mod adds ("every", "cooldown", "only below", stat names) are English.
 
-Research (roll encoding, distribution, RVAs) is in the workspace root README, "Enchantment tooltip roll range".
+## Screenshots
 
-## Preferences (`UserData/MelonPreferences.cfg`, `[EnchantTooltip]`)
+![Roll ranges](docs/pics/nexus/ranges.jpg)
+![Hidden numbers](docs/pics/nexus/details.jpg)
+![Facets](docs/pics/nexus/facets.jpg)
+![Exalted](docs/pics/nexus/exalted.jpg)
+![Settings](docs/pics/nexus/settings.jpg)
 
-| Key | Default | |
+## Install
+
+1. Install [MelonLoader](https://github.com/LavaGang/MelonLoader/releases) **0.7.3** or newer into the game
+   (`...\steamapps\common\NoRestForTheWicked`) and start the game once.
+2. Put `EnchantmentDetails.dll` into the game's `Mods` folder. The
+   [release zip](https://github.com/vergir/NRftW-EnchantmentDetails/releases/latest) already has that layout: extract it
+   into the game folder.
+
+### Steam Deck / Linux (Proton)
+
+1. Install MelonLoader into the game folder the same way: copy the files from `MelonLoader.x64.zip` (the Windows build)
+   into `~/.local/share/Steam/steamapps/common/NoRestForTheWicked`. Put the mod into `Mods`.
+2. In Steam, open the game's **Properties > General > Launch Options** and enter:
+   ```
+   WINEDLLOVERRIDES="version=n,b" %command%
+   ```
+3. Start the game. On the first start, MelonLoader downloads and installs the .NET runtime it needs into the Proton
+   prefix and generates its assemblies. That first start takes a minute or two.
+
+## Settings file
+
+Everything is also stored in `<game>/UserData/MelonPreferences.cfg`, section `[EnchantmentDetails]`:
+
+| Setting | Default | |
 |---|---|---|
 | `Enabled` | `true` | Master switch. |
-| `Format` | `{value} <color=#9A9A9A>({worst}–{best})</color>` | Replaces each rolled number. Placeholders `{value}` (as the game prints it), `{worst}` `{best}` (no sign, no `%`), `{roll}` (0-100, 100 = best roll). TMP rich text works. |
-| `ShowRanges` | `true` | In game: Options > Gameplay > **Show Enchantment Ranges**. |
-| `ShowFacetNumbers` | `true` | **Show Facet Numbers**: trait values, e.g. `Heavy (+20% Damage, +25% Attack Stamina Cost)`; also hides the game's facet keyword pop-up (`InventoryItemInfoElement.PopulateKeywordTooltips` postfix). |
-| `ShowDetailedInfo` | `true` | **Show Detailed Enchantment Info**: every other hidden number (see above). |
-| `AddSettingsRows` | `true` | Add the three toggles to Options > Gameplay (after a divider, rows named `ET_*`). |
-| `HiddenFormat` | ` <color=#9A9A9A>({extra})</color>` | Appended to lines with hidden numbers. |
-| `ShowcaseKey` | `F10` | Screenshot helper, cycles 3 sets then off: each enchantment line is swapped for another that could roll in the same place (same colour, valid on every item type the original is, no duplicates or same-group pairs, unique lines kept, real roll and exalt kept; set 3 exalts one line x4). Display only. |
-| `Debug` | `false` | Log rolled / best / worst / merged text of every enchantment line. |
+| `ShowRanges` | `true` | Worst–best range after every rolled value (**Show Enchantment Ranges**). |
+| `ShowFacetNumbers` | `true` | Facet values, and hide the facet pop-up (**Show Facet Numbers**). |
+| `ShowDetailedInfo` | `true` | The numbers enchantment texts leave out (**Show Detailed Enchantment Info**). |
+| `AddSettingsRows` | `true` | Add the checkboxes to Options > Gameplay. |
+| `Format` | `{value} <color=#9A9A9A>({worst}–{best})</color>` | How a range is written. Placeholders: `{value}`, `{worst}`, `{best}`, `{roll}` (0–100, 100 = best roll). |
+| `HiddenFormat` | ` <color=#9A9A9A>({extra})</color>` | How the added numbers are written. |
+| `Debug` | `false` | Log every enchantment line the mod processes. |
+
+## Compatibility
+
+* Tested with game build 29466 and MelonLoader 0.7.3 on Windows.
+* Display only: nothing in the game simulation or your save is changed, so it does not affect co-op.
+* Game updates can move things around. If the mod stops working after an update, check the MelonLoader log
+  (`<game>/MelonLoader/Latest.log`) and open an issue.
+* Rune details are a separate mod: Rune Details.
 
 ## Build
 
-`dotnet build -c Release` (post-build copies the DLL to `<game>/Mods`, `-p:DeployToGame=false` to skip;
-`-p:GameDir=...` for another install). With HotReload in `<game>/Plugins` the running game picks up new builds.
+Requires a .NET SDK (6 or newer) and MelonLoader installed in the game, so that `MelonLoader/Il2CppAssemblies` exists.
+
+```
+dotnet build -c Release
+```
+
+The DLL is copied to `<game>/Mods` after every build. Use `-p:DeployToGame=false` to skip that, or `-p:GameDir=...` if
+the game is installed elsewhere. `pwsh ./package.ps1` builds the release zip into `dist/`.
+
+## How it works
+
+See [docs/internal.md](docs/internal.md).
+
+## License
+
+[MIT](LICENSE)

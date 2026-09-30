@@ -1,8 +1,8 @@
 using MelonLoader;
 
-namespace EnchantTooltip;
+namespace EnchantmentDetails;
 
-/// <summary>All user-tunable values. Stored in UserData/MelonPreferences.cfg under [EnchantTooltip].</summary>
+/// <summary>All user-tunable values. Stored in UserData/MelonPreferences.cfg under [EnchantmentDetails].</summary>
 internal static class Prefs
 {
     public const string DefaultFormat = "{value} <color=#9A9A9A>({worst}–{best})</color>";
@@ -18,12 +18,11 @@ internal static class Prefs
     public static MelonPreferences_Entry<bool> ShowDetailedInfo = null!;
     public static MelonPreferences_Entry<bool> AddSettingsRows = null!;
     public static MelonPreferences_Entry<string> HiddenFormat = null!;
-    public static MelonPreferences_Entry<string> ShowcaseKey = null!;
     public static MelonPreferences_Entry<bool> Debug = null!;
 
     public static void Init()
     {
-        _cat = MelonPreferences.CreateCategory("EnchantTooltip", "Enchant Tooltip");
+        _cat = MelonPreferences.CreateCategory("EnchantmentDetails", "Enchantment Details");
 
         Enabled = _cat.CreateEntry("Enabled", true, description: "Master switch.");
         Format = _cat.CreateEntry("Format", DefaultFormat,
@@ -40,10 +39,6 @@ internal static class Prefs
             description: "Appended to lines with hidden numbers. {extra} = the numbers, e.g. \"1/s\" or \"<50%\".");
         AddSettingsRows = _cat.CreateEntry("AddSettingsRows", true,
             description: "Add the three toggles above to Options > Gameplay.");
-        ShowcaseKey = _cat.CreateEntry("ShowcaseKey", "F10",
-            description: "Unity KeyCode that cycles 3 screenshot showcase sets, then off: every enchantment line is swapped for another "
-                + "that could roll in the same place (same colour, valid for the item, no duplicates); set 3 exalts one line x4. "
-                + "Display only. Empty = no key.");
         Debug = _cat.CreateEntry("Debug", false,
             description: "Log the rolled / best / worst renderings of every enchantment line (MelonLoader console).");
     }

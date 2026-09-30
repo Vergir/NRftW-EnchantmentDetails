@@ -3,14 +3,11 @@ using System.Collections.Generic;
 using HarmonyLib;
 using Il2CppMoon.Forsaken;
 
-namespace EnchantTooltip.Patches;
+namespace EnchantmentDetails.Patches;
 
 /// <summary>
-/// DescriptionDataProviderExtensions.ResolveDescription runs the value processor (EnchantmentDescriptionExtension
-/// .ProcessValue / .ProcessExalted) on EVERY packet in slot order, packet k = placeholder {k}, before String.Format
-/// drops the ones the template does not reference (loop @0x08B647F0, build 29466). While a capture is open these
-/// postfixes record each packet's Source label and formatted text, and replace the text with a sentinel so the caller
-/// can see which slots made it into the final string.
+/// The value processors run on every packet in slot order, used or not. While a capture is open they record each
+/// packet's Source and text and return a sentinel instead (docs/internal.md, "Hidden numbers").
 /// </summary>
 internal static class PacketCapture
 {

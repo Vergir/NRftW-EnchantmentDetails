@@ -1,22 +1,21 @@
-using EnchantTooltip;
+using EnchantmentDetails;
 using System;
 using MelonLoader;
-using UnityEngine;
 
-[assembly: MelonInfo(typeof(EnchantTooltipMod), "EnchantTooltip", "0.5.0", "vergir")]
+[assembly: MelonInfo(typeof(EnchantmentDetailsMod), "Enchantment Details", "1.0.0", "vergir")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 // MelonLoader would otherwise apply every [HarmonyPatch] in this assembly by itself, ignoring Enabled (and the INERT build).
 [assembly: HarmonyDontPatchAll]
 
-namespace EnchantTooltip;
+namespace EnchantmentDetails;
 
 /// <summary>
-/// No Rest for the Wicked: show the possible range next to every rolled enchantment value,
-/// e.g. "Damage increased by 7% (3-10)". Display only; the simulation is untouched.
+/// No Rest for the Wicked: roll ranges and the numbers the game leaves out, for every enchantment, gem and facet line.
+/// Display only; the simulation is untouched. See docs/internal.md.
 /// </summary>
-public class EnchantTooltipMod : MelonMod
+public class EnchantmentDetailsMod : MelonMod
 {
-    public static EnchantTooltipMod Instance { get; private set; } = null!;
+    public static EnchantmentDetailsMod Instance { get; private set; } = null!;
     public static MelonLogger.Instance Log => Instance.LoggerInstance;
 
     public override void OnInitializeMelon()
@@ -35,7 +34,7 @@ public class EnchantTooltipMod : MelonMod
 
         HiddenNumbers.UnknownSource = (source, value) =>
             LoggerInstance.Msg($"Unhandled dropped number: Source '{source}' = '{value}' (please report)");
-        HarmonyInstance.PatchAll(typeof(EnchantTooltipMod).Assembly);
+        HarmonyInstance.PatchAll(typeof(EnchantmentDetailsMod).Assembly);
         LoggerInstance.Msg("Patches applied.");
 
         // After a hot reload the settings screens already exist; the Initialize postfix will not run for them.
@@ -46,12 +45,6 @@ public class EnchantTooltipMod : MelonMod
         }
     }
 
-    public override void OnUpdate()
-    {
-        if (Prefs.Enabled is null) return; // inert build / not initialised
-        if (!Prefs.Enabled.Value || !Enum.TryParse(Prefs.ShowcaseKey.Value, true, out KeyCode key) || key == KeyCode.None) return;
-        if (Input.GetKeyDown(key)) LoggerInstance.Msg(Showcase.Cycle() + " Re-hover the item to refresh.");
-    }
 
     /// <summary>Unload / hot reload: take our rows back off the game's settings screens.</summary>
     public override void OnDeinitializeMelon()

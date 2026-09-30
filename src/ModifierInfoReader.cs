@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Il2CppQuantum;
 
-namespace EnchantTooltip;
+namespace EnchantmentDetails;
 
 /// <summary>Reads the structural facts HiddenNumbers needs from an enchantment's Quantum ModifierData.</summary>
 internal static class ModifierInfoReader
@@ -44,14 +44,14 @@ internal static class ModifierInfoReader
                 {
                     if (RateStats.Contains(stat.StatType)) info.RateStatIndices.Add(info.StatNames.Count);
                     info.StatNames.Add(Label(stat.StatType.ToString()));
-                    info.StatSigns.Add(Sign(stat.ScalingData));
+                    info.StatSigns.Add(Sign(stat.ScalingData) * Flip(stat.StatType.ToString()));
                     continue;
                 }
                 var itemStat = m.TryCast<ItemStatModifier>();
                 if (itemStat != null)
                 {
                     itemStats.Add(Label(itemStat.StatType.ToString()));
-                    itemSigns.Add(Sign(itemStat.ScalingData));
+                    itemSigns.Add(Sign(itemStat.ScalingData) * Flip(itemStat.StatType.ToString()));
                     continue;
                 }
                 var periodic = m.TryCast<PeriodicModifier>();
@@ -65,6 +65,12 @@ internal static class ModifierInfoReader
                 if (damageEvent != null)
                 {
                     info.TargetCondition ??= FirstRatioCondition(damageEvent.MetaConditions.TargetConditions);
+                    continue;
+                }
+                var infusion = m.TryCast<DamageSchoolOverrideModifier>();
+                if (infusion != null)
+                {
+                    info.Infusion = SchoolName(infusion.DamageSchool) + " Infusion";
                     continue;
                 }
                 var sprint = m.TryCast<ApplyStatusOnSprintModifier>();
@@ -84,8 +90,7 @@ internal static class ModifierInfoReader
         return info;
     }
 
-    /// <summary>"for each Nearby Enemy" / "if no Enemies nearby": radius from BalanceConfig
-    /// (Modifiers.NearbyEnemiesScaler.CheckRadiusSquared), cap = the scaler curve's value at its last key.</summary>
+    /// <summary>"for each Nearby Enemy": radius from BalanceConfig, cap = the scaler curve's end value.</summary>
     private static void ReadNearbyScaler(IAssetResolutionContext ctx, ModifierData md, ModifierInfo info)
     {
         var scalers = md.CustomScalerData.Collection;
@@ -125,8 +130,7 @@ internal static class ModifierInfoReader
         return null;
     }
 
-    /// <summary>Health/Focus/Stamina ratio thresholds strictly between 0 and 100% ("Full Health" and
-    /// "if have Barrier" style conditions say nothing a number would add).</summary>
+    /// <summary>Health/Focus/Stamina ratio thresholds strictly between 0 and 100%; others add nothing.</summary>
     private static Condition? RatioCondition(EntityCondition? condition)
     {
         var c = condition?.TryCast<EntityStatsCondition>();
@@ -143,6 +147,26 @@ internal static class ModifierInfoReader
         return stat == null ? null : new Condition(stat, c.ComparisonType == ComparisonType.LessThan, t);
     }
 
-    internal static string Label(string enumName) =>
-        Labels.TryGetValue(enumName, out var l) ? l : CamelSplit.Replace(enumName, " ");
+    /// <summary>"XDamageTaken" reads as the game says it, "X Resistance", with the sign flipped (-10% taken = +10%).</summary>
+    internal static string Label(string enumName)
+    {
+        if (Labels.TryGetValue(enumName, out var l)) return l;
+        if (enumName.EndsWith("DamageTaken"))
+        {
+            string school = CamelSplit.Replace(enumName.Substring(0, enumName.Length - "DamageTaken".Length), " ");
+            return school.Length == 0 ? "Damage Resistance" : school + " Resistance";
+        }
+        return CamelSplit.Replace(enumName, " ");
+    }
+
+    /// <summary>The game's player-facing school names (the enum says Heat / Cold / Electric).</summary>
+    private static string SchoolName(DamageSchool school) => school switch
+    {
+        DamageSchool.Heat => "Fire",
+        DamageSchool.Cold => "Ice",
+        DamageSchool.Electric => "Lightning",
+        _ => school.ToString(),
+    };
+
+    private static int Flip(string enumName) => enumName.EndsWith("DamageTaken") ? -1 : 1;
 }

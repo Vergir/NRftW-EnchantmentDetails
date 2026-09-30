@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace EnchantTooltip;
+namespace EnchantmentDetails;
 
 /// <summary>What HiddenNumbers needs to know about an enchantment's ModifierData (read by ModifierInfoReader).</summary>
 internal sealed class ModifierInfo
@@ -10,8 +10,7 @@ internal sealed class ModifierInfo
     public bool IsTrait;
     /// <summary>Stat names of the StatModifiers then ItemStatModifiers, in the order their packets are emitted.</summary>
     public List<string> StatNames = new();
-    /// <summary>Sign of each stat modifier's value (same order as StatNames). The game prints magnitudes only
-    /// ("reduced by {0}"), so the sign must come from the data.</summary>
+    /// <summary>Sign of each stat modifier's value; the game prints magnitudes only.</summary>
     public List<int> StatSigns = new();
     /// <summary>StatModifier stats that are per-second rates (HealthDrain, FocusDrain, HealthRegen).</summary>
     public HashSet<int> RateStatIndices = new();
@@ -27,15 +26,16 @@ internal sealed class ModifierInfo
     /// (null for "no enemies nearby" style curves that fall to 0).</summary>
     public float? NearbyRadius;
     public int? NearbyMaxEnemies;
+    /// <summary>DamageSchoolOverrideModifier on a facet (Flaming, Frigid, Voltaic, Festering): "Plague Infusion". Not a
+    /// packet; gem lines already say it in their text.</summary>
+    public string? Infusion;
 }
 
 internal readonly record struct Condition(string Stat, bool LessThan, float Threshold);
 
 /// <summary>
-/// Pure logic (no game types): picks the packets the template dropped and turns them into a short suffix, e.g.
-/// "1/s", "every 1s", "5s cooldown", "&lt;50%", "+20% Damage, +25% Attack Stamina Cost".
-/// Rules agreed with the user (2026-09-27): no 60s+ debuff durations, no meaningless 0%/100% thresholds, no meters or
-/// durations for distance-based periodic effects, trait values labelled by stat.
+/// Pure logic (no game types): turns the packets a template dropped into a short suffix such as "1/s", "every 1s",
+/// "5s cooldown", "&lt;50%" or "+20% Damage, -10% Focus Gain". Rules: docs/internal.md, "Hidden numbers".
 /// </summary>
 internal static class HiddenNumbers
 {
@@ -97,8 +97,7 @@ internal static class HiddenNumbers
                 if (info.HasDistancePeriod) continue;
                 if (double.TryParse(value.TrimEnd('s'), NumberStyles.Float, CultureInfo.InvariantCulture, out var secs) && secs >= 60) continue;
                 if (usedTexts.Contains(value) || !seenDurations.Add(value)) continue; // same as a duration already in the text
-                // In this build every dropped status duration left after the rules above is an internal cooldown
-                // (Cinder & Stone's Furnace, Lacquered Bow's per-element Hunter's Mark lockout).
+                // Every dropped duration left after the rules above is an internal cooldown.
                 parts.Add(value + "s cooldown");
             }
             else if (source == "DamageEventCondition")
@@ -115,28 +114,31 @@ internal static class HiddenNumbers
             }
         }
 
+        if (info.IsTrait && info.Infusion != null) parts.Insert(0, info.Infusion);
         if (info.SprintSeconds is { } sprint && sprint > 0)
             parts.Add($"after {Num(sprint)}s of sprinting");
         if (info.NearbyRadius is { } radius)
         {
-            // Whole metres: tooltip space matters more than the 7.07.
             string r = System.Math.Round(radius).ToString(CultureInfo.InvariantCulture);
             parts.Add(info.NearbyMaxEnemies is { } max ? $"max {max}, within {r}m" : $"within {r}m");
         }
 
         string plainLine = Plain(line);
         if (conditionPacketDropped && info.SelfCondition is { } self) parts.Add(ConditionText(self, plainLine));
-        if (info.TargetCondition is { } target) parts.Add(ConditionText(target, plainLine));
+        if (info.TargetCondition is { } target) parts.Add(ConditionText(target, plainLine, onTarget: true));
         return parts.Count > 0 ? string.Join(", ", parts) : null;
     }
 
-    /// <summary>"&lt;50%" when the line already says Low/High Health etc., else the whole condition
-    /// (the Attack Stamina Cost tradeoff never mentions that it only applies below 30% Focus).</summary>
-    private static string ConditionText(Condition c, string line)
+    /// <summary>"&lt;50%" when the line already says Low/High, else the whole condition ("only below 30% Focus").</summary>
+    /// <param name="onTarget">The enemy's value (execute, "against Low Health Enemies"): say which one, "&lt;20% HP".</param>
+    private static string ConditionText(Condition c, string line, bool onTarget = false)
     {
         int pct = (int)System.Math.Round(c.Threshold * 100);
         if (ThresholdWord.IsMatch(line))
-            return c.LessThan ? "<" + pct + "%" : pct + "%+";
+        {
+            string unit = onTarget ? " " + (c.Stat == "Health" ? "HP" : c.Stat) : "";
+            return (c.LessThan ? "<" + pct + "%" : pct + "%+") + unit;
+        }
         return c.LessThan ? $"only below {pct}% {c.Stat}" : $"only at {pct}%+ {c.Stat}";
     }
 
