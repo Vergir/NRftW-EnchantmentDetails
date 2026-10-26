@@ -14,6 +14,8 @@ internal sealed class ModifierInfo
     public List<int> StatSigns = new();
     /// <summary>StatModifier stats that are per-second rates (HealthDrain, FocusDrain, HealthRegen).</summary>
     public HashSet<int> RateStatIndices = new();
+    /// <summary>The RateStat indices that are HealthRegen: its game value is per 10 s, shown as value/10 per second.</summary>
+    public HashSet<int> RegenStatIndices = new();
     /// <summary>A PeriodicModifier ticking per distance moved (Proud Lance): its period and status are not shown.</summary>
     public bool HasDistancePeriod;
     /// <summary>ModifierData.EntityCondition, when it is a Ratio threshold strictly between 0 and 100%.</summary>
@@ -76,8 +78,10 @@ internal static class HiddenNumbers
                 if (anyUsed) continue;
                 if (info.IsTrait && thisStat < info.StatNames.Count)
                     parts.Add(Signed(value, thisStat < info.StatSigns.Count ? info.StatSigns[thisStat] : 0) + " " + info.StatNames[thisStat]);
+                else if (info.RegenStatIndices.Contains(thisStat))
+                    parts.Add(PerSecond(value, scale: 0.1f));
                 else if (info.RateStatIndices.Contains(thisStat))
-                    parts.Add(value + "/s");
+                    parts.Add(PerSecond(value));
                 else
                     parts.Add(value);
             }
@@ -143,6 +147,21 @@ internal static class HiddenNumbers
     }
 
     private static string Num(float v) => System.Math.Round(v, 1).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>"20" -> "2/s": the packet's magnitude divided by scale, as a per-second rate.
+    /// HealthRegen's game value is per 10 s (scale 0.1); drain rates pass through at scale 1.</summary>
+    private static string PerSecond(string v, float scale = 1f)
+    {
+        if (scale == 1f) return v + "/s";
+        string magnitude = v.TrimStart('+', '-');
+        string sign = magnitude.Length < v.Length ? v.Substring(0, v.Length - magnitude.Length) : "";
+        if (double.TryParse(magnitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var n))
+        {
+            double perSecond = n * scale;
+            return sign + perSecond.ToString("0.###", CultureInfo.InvariantCulture) + "/s";
+        }
+        return v + "/s";
+    }
 
     private static string Plain(string s) => Tags.Replace(s, "").Trim();
 

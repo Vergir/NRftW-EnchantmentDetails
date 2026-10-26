@@ -43,6 +43,7 @@ internal static class ModifierInfoReader
                 if (stat != null)
                 {
                     if (RateStats.Contains(stat.StatType)) info.RateStatIndices.Add(info.StatNames.Count);
+                    if (stat.StatType == StatType.HealthRegen) info.RegenStatIndices.Add(info.StatNames.Count);
                     info.StatNames.Add(Label(stat.StatType.ToString()));
                     info.StatSigns.Add(Sign(stat.ScalingData) * Flip(stat.StatType.ToString()));
                     continue;

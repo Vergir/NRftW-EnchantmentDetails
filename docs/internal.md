@@ -88,7 +88,7 @@ parentheses, so the fragments themselves never contain parentheses.
 
 | Dropped packet (`Source`) | Shown | Not shown |
 |---|---|---|
-| `StatModifier` / `ItemStatModifier` on a line with **no** placeholder | the value; `/s` for HealthDrain, FocusDrain, HealthRegen; facets label each stat and take the **sign from the data** (`+75 Durability, -10% Focus Gain`); `XDamageTaken` stats read as the game says them, `X Resistance` with the sign flipped (`+10% Fire Resistance`) | lines that have a `{N}`: extra stat packets there are dummy status markers (`Durability +1`) |
+| `StatModifier` / `ItemStatModifier` on a line with **no** placeholder | the value; `/s` for HealthDrain and FocusDrain; HealthRegen's game value is per 10 s, shown as a tenth of it per second (20 → `2/s`); facets label each stat and take the **sign from the data** (`+75 Durability, -10% Focus Gain`); `XDamageTaken` stats read as the game says them, `X Resistance` with the sign flipped (`+10% Fire Resistance`) | lines that have a `{N}`: extra stat packets there are dummy status markers (`Durability +1`) |
 | `PayloadData*`, `InterModifier`, `BarrierModifier`, `CustomDamage*` on a line with no placeholder | the value (`Refill Stamina (100%)`) | lines with a target condition (an execute's "100% of target Health") |
 | `PeriodicModifier` | `every 1s` | distance-based periods (Proud Lance: a buff while moving) |
 | `StatusDuration` | `5s cooldown` | 60 s or longer (the fight is over by then), and durations equal to one already in the text. In this build every one left is an internal cooldown (Cinder & Stone, Lacquered Bow). |
